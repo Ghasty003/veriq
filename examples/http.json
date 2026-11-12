@@ -1,0 +1,10 @@
+{
+  "target": "http://127.0.0.1:4300/health",
+  "method": "GET",
+  "headers": {
+    "accept": "application/json"
+  },
+  "timeoutMs": 2000,
+  "maxDurationMs": 1000,
+  "expectedStatus": 200
+}

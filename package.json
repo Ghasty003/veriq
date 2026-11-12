@@ -1,0 +1,36 @@
+{
+  "name": "veriq",
+  "version": "0.0.1",
+  "private": true,
+  "description": "Evidence-based system-design experiments for running applications",
+  "type": "module",
+  "bin": {
+    "veriq": "dist/cli.js"
+  },
+  "files": [
+    "dist",
+    "docs",
+    "examples",
+    "PLAN.md"
+  ],
+  "engines": {
+    "node": ">=22.18.0"
+  },
+  "scripts": {
+    "build": "tsc",
+    "typecheck": "tsc -p tsconfig.test.json",
+    "test": "node --test test/*.test.ts",
+    "test:integration": "npm run build && node --test test/integration/*.test.ts",
+    "check": "npm run typecheck && npm test && npm run test:integration",
+    "experiment:timeouts": "npm run build && node --test ../veriq-testcase/dependency-timeout/experiment.test.ts",
+    "dev": "node src/cli.ts",
+    "prepare": "npm run build"
+  },
+  "devDependencies": {
+    "@types/node": "^22.20.5",
+    "typescript": "^7.0.2"
+  },
+  "dependencies": {
+    "commander": "^15.0.0"
+  }
+}
