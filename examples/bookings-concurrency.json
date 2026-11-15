@@ -1,0 +1,9 @@
+{
+  "target": "http://127.0.0.1:4400/bookings/A1",
+  "method": "POST",
+  "requests": 20,
+  "concurrency": 5,
+  "expectedStatus": 201,
+  "maxDurationMs": 2000,
+  "timeoutMs": 3000
+}

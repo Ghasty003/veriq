@@ -23,6 +23,7 @@
     "test:integration": "npm run build && node --test test/integration/*.test.ts",
     "check": "npm run typecheck && npm test && npm run test:integration",
     "experiment:timeouts": "npm run build && node --test ../veriq-testcase/dependency-timeout/experiment.test.ts",
+    "experiment:concurrency": "npm run build && node --test ../veriq-testcase/concurrency/experiment.test.ts",
     "dev": "node src/cli.ts",
     "prepare": "npm run build"
   },

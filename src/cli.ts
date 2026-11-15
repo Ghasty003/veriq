@@ -9,6 +9,8 @@ import { readConfigurationFile } from "./config-file.ts";
 import { ConfigurationError } from "./http-config.ts";
 import { formatLatencyReport } from "./latency-report.ts";
 import { withCliCancellation } from "./cli-cancellation.ts";
+import { runHttpConcurrency } from "./http-concurrency.ts";
+import { formatConcurrencyReport } from "./concurrency-report.ts";
 
 function normalizeTarget(value: string) {
   let target: URL;
@@ -46,6 +48,16 @@ function sampleCount(value: string) {
     throw new InvalidArgumentError("Use an integer from 1 to 10000 samples.");
   }
   return count;
+}
+
+function boundedCount(label: string, maximum: number) {
+  return (value: string) => {
+    const count = Number(value);
+    if (!/^\d+$/.test(value) || !Number.isInteger(count) || count < 1 || count > maximum) {
+      throw new InvalidArgumentError(`${label} must be an integer from 1 to ${maximum}.`);
+    }
+    return count;
+  };
 }
 
 const program = new Command()
@@ -124,9 +136,36 @@ program.command("latency <url>")
     });
   });
 
+program.command("concurrency [url]")
+  .description("Execute bounded concurrent HTTP requests (URL or --config, exclusively).")
+  .option("--config <path>", "JSON request settings plus requests and concurrency")
+  .option("--requests <count>", "total requests, 1 to 10000; default 20", boundedCount("requests", 10000))
+  .option("--concurrency <count>", "maximum in-flight attempts, 1 to 256; default 5", boundedCount("concurrency", 256))
+  .option("--method <method>", "HTTP method; default GET")
+  .option("--expected-status <status>", "required final HTTP status; default 200", httpStatus)
+  .option("--max-duration-ms <ms>", "per-request header-arrival requirement; default 500", positiveMilliseconds)
+  .option("--timeout-ms <ms>", "per-request observer waiting limit; default 2000", positiveMilliseconds)
+  .option("--format <format>", "text or json", "text")
+  .action(async (url: string | undefined, options: {
+    config?: string; requests?: number; concurrency?: number; method?: string;
+    expectedStatus?: number; maxDurationMs?: number; timeoutMs?: number; format: string;
+  }) => {
+    if (!["text", "json"].includes(options.format)) throw new ConfigurationError("--format must be text or json.");
+    if ((url === undefined) === (options.config === undefined)) throw new ConfigurationError("Provide exactly one target URL or --config file.");
+    const settings = { target: url, requests: options.requests, concurrency: options.concurrency, method: options.method, expectedStatus: options.expectedStatus, maxDurationMs: options.maxDurationMs, timeoutMs: options.timeoutMs };
+    if (options.config && Object.entries(settings).some(([key, value]) => key !== "target" && value !== undefined)) {
+      throw new ConfigurationError("Request and scheduling settings belong in the config file when using --config.");
+    }
+    await withCliCancellation(async (signal, exitCode) => {
+      const report = await runHttpConcurrency(options.config ? await readConfigurationFile(options.config) : settings, { signal });
+      console.log(formatConcurrencyReport(report, options.format as "text" | "json"));
+      process.exitCode = exitCode(report.result, report.completion.reason === "cancelled");
+    });
+  });
+
 try {
   if (process.argv.length === 2) {
-    throw new Error("Expected a command: veriq run, probe, or latency. Use --help for usage.");
+    throw new Error("Expected a command: veriq run, probe, latency, or concurrency. Use --help for usage.");
   }
   await program.parseAsync(process.argv);
 } catch (cause) {
