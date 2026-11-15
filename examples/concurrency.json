@@ -1,0 +1,9 @@
+{
+  "target": "http://127.0.0.1:4400/work",
+  "method": "GET",
+  "requests": 20,
+  "concurrency": 5,
+  "expectedStatus": 200,
+  "maxDurationMs": 500,
+  "timeoutMs": 2000
+}

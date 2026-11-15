@@ -46,6 +46,13 @@ completion and text/JSON reports. Standard verification is self-contained in
 this repository through `npm run check`. Review the completed latency
 implementation and usage before the next substantial feature.
 
+Bounded HTTP concurrency is now implemented and documented in
+[the concurrency reference](docs/concurrency.md). It includes HTTP/configuration
+settings, bounded workers, cancellation/error fan-out, ordered per-request
+evidence, status counts and client-side peak activity. Real capacity and
+SQLite booking experiments verify observed overlap and persisted state;
+standard tests remain independent of the optional application folder.
+
 Test applications live in the sibling `../veriq-testcase` folder, outside this
 repository. Veriq-owned test helpers stay under `test/support/`; standard checks
 do not import companion applications. See [testing](docs/testing.md).
@@ -243,12 +250,32 @@ Completed timeout/deadline experiment:
   measurement limits. These are local application budgets; HTTP deadline
   propagation and an overall Veriq run deadline remain separate future work.
 
+## Controlled concurrency — completed
+
+- [x] Validate request count, worker limit and HTTP settings before execution.
+- [x] Keep active attempts bounded and reuse slots without launching all requests at once.
+- [x] Preserve request numbering, worker identity and out-of-order completion evidence.
+- [x] Continue on target failures; stop and cancel peers on internal failures.
+- [x] Support cancellation and preserve partial FAIL/INCONCLUSIVE/ERROR semantics.
+- [x] Report text/JSON, status counts, response statistics and client peak activity.
+- [x] Verify scheduling and failures with isolated unit and real HTTP integration tests.
+- [x] Run healthy/capacity experiments against an actual application.
+- [x] Expose a naive booking race and verify the corrected database uniqueness constraint.
+- [x] Verify two application instances sharing one database preserve seat uniqueness.
+- [x] Document exact commands, expected evidence and limits without questions.
+
+The optional application and booking-state harness remain in
+`../veriq-testcase/concurrency`; no external applications are required for
+`npm run check`. HTTP assertions and business-state assertions are distinct.
+Concurrency does not automatically discover application invariants or prove
+that an unobserved race is impossible.
+
 ## Later concept progression
 
 Each item uses the same working loop; this is a learning sequence, not a promise
 to create all features now. Teach prerequisites before dependent concepts.
 
-1. Basic concurrency.
+1. Controlled concurrency (implemented; review current work before advancing).
 2. Idempotency.
 3. Retries and retry safety.
 4. Rate limiting.

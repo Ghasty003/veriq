@@ -61,3 +61,7 @@ for the empty-remote setup described here.
 
 Contributors can run the full standard test suite with only this repository.
 The optional companion application experiments are outside the GitHub project.
+
+Optional local capacity/booking experiments use `npm run experiment:concurrency`
+and the sibling `veriq-testcase/concurrency` application. That folder stays
+outside this repository; standard checks do not require it.
