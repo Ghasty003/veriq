@@ -8,7 +8,7 @@ export type HttpObservation = HttpEvidence & {
   cleanup: "no-body" | "body-cancelled" | "failed";
 };
 
-function transportFailure(cause: unknown): { category: TransportCategory; code: string | null } | null {
+export function transportFailure(cause: unknown): { category: TransportCategory; code: string | null } | null {
   const queue: unknown[] = [cause];
   const codes: string[] = [];
   for (let checked = 0; queue.length && checked < 16; checked++) {

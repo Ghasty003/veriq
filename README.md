@@ -2,8 +2,9 @@
 
 Veriq runs experiments against applications and reports evidence about explicit
 system requirements. The current implementation supports HTTP reachability,
-status and header-arrival timing assertions, configurable sequential latency
-and bounded HTTP concurrency experiments. It is under active development.
+status and header-arrival timing assertions, configurable sequential latency,
+bounded HTTP concurrency and explicit HTTP/JSON idempotency experiments.
+It is under active development.
 
 ## Setup
 
@@ -27,6 +28,7 @@ after changing source to update that executable. Without linking, use
 | `veriq run <url>` | Execute one configured, cancellable HTTP experiment. | GET, status 200 within 2000 ms. | Text; `--format json` for a versioned JSON report. |
 | `veriq run --config <file>` | Load request and assertion settings from JSON. | Defaults apply to omitted settings. | Text or JSON. |
 | `veriq probe <url>` | Execute a single GET using the original command interface. | Status 200 within 2000 ms. | JSON. |
+| `veriq idempotency --config <file>` | Verify sequential/concurrent same-key replays, changed-input rejection and declared effect counts. Requires a JSON response/state API contract. | Fresh keys, three sequential and five concurrent attempts, conflict status 409. | Text or `--format json`. |
 | `veriq concurrency <url>` | Send a bounded number of overlapping HTTP attempts. Accepts `--config` for headers/body. | 20 requests, concurrency 5, status 200 within 500 ms, wait up to 2000 ms each. | Text by default; `--format json` for full evidence. |
 | `veriq latency <url>` | Send configurable sequential GET samples with cancellation and per-attempt evidence. | Five samples; every attempt returns 200 within 200 ms; wait up to 2000 ms per attempt. | JSON by default; `--format text` for readable output. |
 
@@ -42,8 +44,10 @@ veriq latency http://127.0.0.1:3000/health --samples 20 --max-duration-ms 200 --
 veriq concurrency http://127.0.0.1:3000/health --requests 100 --concurrency 10 --format text
 ```
 
-All commands measure arrival of **response headers**. They do not check response
-body contents or completion, and they do not follow redirects. A passing request
+Run, probe, latency and concurrency measure arrival of **response headers**.
+They do not check response-body contents or completion. Idempotency reads bounded
+JSON responses and declared effect counts; see its explicit API contract.
+Commands do not follow redirects. A passing request
 does not establish sustained availability or correctness of the whole application.
 
 ## Configuration
@@ -109,13 +113,15 @@ The separate checkout/dependency applications remain optional local experiments
 outside this repository; their script is `npm run experiment:timeouts`.
 The optional busy-server and persisted booking-race experiments run with
 `npm run experiment:concurrency`. Neither local application folder is needed
-for standard checks.
+for standard checks. The optional idempotency application and durable replay
+experiments run with `npm run experiment:idempotency`.
 
 ## Documentation
 
 | Document | Contents |
 | --- | --- |
 | [HTTP reference](docs/http-foundation.md) | Configuration, module responsibilities, execution flow, errors, cancellation and HTTP tests. |
+| [Idempotency reference](docs/idempotency.md) | Required API contract, replay/effect assertions, JSON bounds, local applications and verification. |
 | [Concurrency reference](docs/concurrency.md) | Worker limits, HTTP settings, cancellation, reports, capacity and persisted booking-race experiments. |
 | [Latency reference](docs/latency.md) | Sampling options, cancellation/partial results, summaries and reproducible latency tests. |
 | [Timeout/deadline experiment](docs/dependency-timeouts.md) | Test checkout's handling of slow dependencies and a shared application deadline. |

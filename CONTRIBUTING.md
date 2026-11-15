@@ -65,3 +65,6 @@ The optional companion application experiments are outside the GitHub project.
 Optional local capacity/booking experiments use `npm run experiment:concurrency`
 and the sibling `veriq-testcase/concurrency` application. That folder stays
 outside this repository; standard checks do not require it.
+
+Optional SQLite idempotency/recovery experiments use `npm run experiment:idempotency`
+and `../veriq-testcase/idempotency`. Standard tests remain self-contained.
