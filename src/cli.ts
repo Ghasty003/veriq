@@ -11,6 +11,8 @@ import { formatLatencyReport } from "./latency-report.ts";
 import { withCliCancellation } from "./cli-cancellation.ts";
 import { runHttpConcurrency } from "./http-concurrency.ts";
 import { formatConcurrencyReport } from "./concurrency-report.ts";
+import { testHttpIdempotency } from "./http-idempotency.ts";
+import { formatIdempotencyReport } from "./idempotency-report.ts";
 
 function normalizeTarget(value: string) {
   let target: URL;
@@ -65,7 +67,7 @@ const program = new Command()
   .description("Run HTTP experiments and report evidence against explicit requirements.")
   .exitOverride()
   .configureOutput({ writeErr: () => {} })
-  .addHelpText("after", "\nMeasurements stop at headers; redirects are not followed; bodies are not asserted.\nExit codes: 0 PASS/help, 1 FAIL, 2 ERROR, 3 INCONCLUSIVE; run interrupted: 130 SIGINT / 143 SIGTERM.");
+  .addHelpText("after", "\nHTTP/latency/concurrency measurements stop at headers. Idempotency reads bounded JSON and declared effect counts. Redirects are not followed.\nExit codes: 0 PASS/help, 1 FAIL, 2 ERROR, 3 INCONCLUSIVE; interrupted: 130 SIGINT / 143 SIGTERM.");
 
 program.command("run [url]")
   .description("Run one configured HTTP experiment (URL or --config, exclusively).")
@@ -163,9 +165,22 @@ program.command("concurrency [url]")
     });
   });
 
+program.command("idempotency")
+  .description("Verify repeated operations, replay, conflict rejection and observed effects using a declared JSON state API.")
+  .requiredOption("--config <path>", "idempotency experiment JSON configuration")
+  .option("--format <format>", "text or json", "text")
+  .action(async (options: { config: string; format: string }) => {
+    if (!["text", "json"].includes(options.format)) throw new ConfigurationError("--format must be text or json.");
+    await withCliCancellation(async (signal, exitCode) => {
+      const report = await testHttpIdempotency(await readConfigurationFile(options.config), { signal });
+      console.log(formatIdempotencyReport(report, options.format as "text" | "json"));
+      process.exitCode = exitCode(report.result, report.completion.reason === "cancelled");
+    });
+  });
+
 try {
   if (process.argv.length === 2) {
-    throw new Error("Expected a command: veriq run, probe, latency, or concurrency. Use --help for usage.");
+    throw new Error("Expected a command: veriq run, probe, latency, concurrency, or idempotency. Use --help for usage.");
   }
   await program.parseAsync(process.argv);
 } catch (cause) {

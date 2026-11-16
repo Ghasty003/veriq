@@ -5,12 +5,12 @@ import { fileURLToPath } from "node:url";
 
 const cli = fileURLToPath(new URL("../src/cli.ts", import.meta.url));
 test("root and probe help expose configurable requirements and exit successfully", () => {
-  for (const args of [["--help"], ["probe", "--help"], ["run", "--help"], ["latency", "--help"], ["concurrency", "--help"]]) {
+  for (const args of [["--help"], ["probe", "--help"], ["run", "--help"], ["latency", "--help"], ["concurrency", "--help"], ["idempotency", "--help"]]) {
     const result = spawnSync(process.execPath, [cli, ...args], { encoding: "utf8" });
     assert.equal(result.status, 0, result.stderr);
     assert.equal(result.stderr, "");
     assert.match(result.stdout, args.length === 1 ? /probe/ : new RegExp(args[0]));
-    if (args.length === 2) assert.match(result.stdout, /--expected-status/);
+    if (args.length === 2) assert.match(result.stdout, args[0] === "idempotency" ? /--config/ : /--expected-status/);
   }
 });
 
@@ -37,6 +37,8 @@ test("invalid invocations produce ERROR on stderr without experiment evidence", 
     ["concurrency", url, "--format", "xml"], ["concurrency", url, "--method", "CONNECT"],
     ["concurrency", url, "--config", "missing.json"],
     ["concurrency", "--config", "missing.json", "--requests", "2"],
+    ["idempotency"], ["idempotency", "--config", "missing.json"],
+    ["idempotency", "--config", "missing.json", "--format", "xml"],
   ];
   for (const args of cases) {
     const result = spawnSync(process.execPath, [cli, ...args], { encoding: "utf8" });

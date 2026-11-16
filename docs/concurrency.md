@@ -108,7 +108,8 @@ cluster-wide concurrency budget.
 
 | Module | Responsibility |
 | --- | --- |
-| `src/http-concurrency.ts` | Validate scheduling, allocate bounded workers, assign unique request numbers, stop/cancel peers, aggregate results. |
+| `src/http-concurrency.ts` | Validate HTTP/scheduling configuration and aggregate bounded request results. |
+| `src/bounded-workers.ts` | Shared bounded worker allocation, unique claims, cancellation fan-out and settled result collection. |
 | `src/http-experiment.ts` | Execute one attempt through shared validation, observation and assertion logic. |
 | `src/http-observation.ts` | Own each request timer, caller cancellation, transport evidence and body cleanup. |
 | `src/concurrency-report.ts` | Render full JSON or readable text with status counts, peak active attempts and every request record. |

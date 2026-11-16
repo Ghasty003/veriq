@@ -1,3 +1,4 @@
+import { runBounded } from "./bounded-workers.ts";
 import { randomUUID } from "node:crypto";
 import { ConfigurationError, parseHttpConfiguration, redactUrl, type HttpConfiguration } from "./http-config.ts";
 import { runHttpExperiment, type HttpRunReport, type RunResult } from "./http-experiment.ts";
@@ -52,55 +53,18 @@ export async function runHttpConcurrency(
   const runId = randomUUID();
   const startedAt = new Date().toISOString();
   const start = performance.now();
-  const records: (ConcurrentRequest | undefined)[] = new Array(count);
-  // One private controller per worker avoids adding hundreds of listeners to
-  // the caller's signal. The caller has exactly one cancellation subscription.
-  const controllers = Array.from({ length: Math.min(count, concurrency) }, () => new AbortController());
-  let next = 0, active = 0, peakInFlight = 0;
-  let stopped = false;
-  let error: HttpRunReport["error"] = null;
-  const stop = () => {
-    stopped = true;
-    for (const controller of controllers) controller.abort();
-  };
-  options.signal?.addEventListener("abort", stop, { once: true });
-  if (options.signal?.aborted) stop();
-  const fetchRequest = options.fetch;
-  async function worker(workerIndex: number) {
-    const signal = controllers[workerIndex].signal;
-    while (!stopped && next < count) {
-      // No await between reading/incrementing next: each JS worker claims a
-      // unique request number before yielding, without a shared-memory race.
-      const index = next++;
-      active++;
-      peakInFlight = Math.max(peakInFlight, active);
-      let report: Pick<HttpRunReport, "evidence" | "assertion" | "result" | "error">;
-      try {
-        report = await runHttpExperiment(http, { signal, fetch: fetchRequest });
-      } catch {
-        report = {
-          evidence: null, result: "ERROR",
-          assertion: { description: "HTTP execution could not complete", expectedStatus: http.expectedStatus, maxDurationMs: http.maxDurationMs, passed: null },
-          error: { code: "WORKER_EXECUTION_FAILED", name: "ExecutionError", message: "A concurrency worker could not execute the request correctly." },
-        };
-      } finally {
-        active--;
-      }
-      records[index] = { request: index + 1, worker: workerIndex + 1, evidence: report.evidence, assertion: report.assertion, result: report.result, error: report.error };
-      if (report.result === "ERROR") {
-        error ??= report.error ?? { code: "WORKER_EXECUTION_FAILED", name: "ExecutionError", message: "A concurrency worker reported an internal error." };
-        stop();
-      } else if (report.result === "INCONCLUSIVE") stop();
-      // Target FAIL is evidence, not a reason to discard the rest of the run.
-    }
-  }
-  try {
-    await Promise.all(controllers.map((_, index) => worker(index)));
-  } finally {
-    options.signal?.removeEventListener("abort", stop);
-    for (const controller of controllers) controller.abort();
-  }
-  const attempts = records.filter((record): record is ConcurrentRequest => record !== undefined);
+  const pool = await runBounded<Pick<HttpRunReport, "evidence" | "assertion" | "result" | "error">>({
+    count, concurrency, signal: options.signal,
+    action: (_index, signal) => runHttpExperiment(http, { signal, fetch: options.fetch }),
+    stopWhen: (report) => report.result === "ERROR" || report.result === "INCONCLUSIVE",
+    onException: () => ({
+      evidence: null, result: "ERROR",
+      assertion: { description: "HTTP execution could not complete", expectedStatus: http.expectedStatus, maxDurationMs: http.maxDurationMs, passed: null },
+      error: { code: "WORKER_EXECUTION_FAILED", name: "ExecutionError", message: "A concurrency worker could not execute the request correctly." },
+    }),
+  });
+  const attempts: ConcurrentRequest[] = pool.entries.map(({ index, worker, value }) => ({ request: index + 1, worker, ...value }));
+  const error = attempts.find((attempt) => attempt.result === "ERROR")?.error ?? null;
   const completed = attempts.filter((request) => request.result === "PASS" || request.result === "FAIL").length;
   const reason = error ? "execution-error" : completed === count ? "completed" : "cancelled";
   const failed = attempts.some((request) => request.assertion.passed === false);
@@ -119,7 +83,7 @@ export async function runHttpConcurrency(
     },
     completion: { reason, requestedRequestCount: count, attemptedRequestCount: attempts.length, completedRequestCount: completed, unstartedRequestCount: count - attempts.length },
     requests: attempts,
-    summary: { ...summarizeHttpLatency(evidence), attemptCount: attempts.length, unobservedAttemptCount: attempts.length - evidence.length, statusCounts, peakInFlight },
+    summary: { ...summarizeHttpLatency(evidence), attemptCount: attempts.length, unobservedAttemptCount: attempts.length - evidence.length, statusCounts, peakInFlight: pool.peakInFlight },
     assertion: { description: `All ${count} requests must receive HTTP response headers with status ${http.expectedStatus} within ${http.maxDurationMs} milliseconds`, passed: result === "ERROR" || result === "INCONCLUSIVE" ? null : result === "PASS" },
     result,
     finding: error ? "Veriq could not complete the experiment correctly; preserved request evidence remains available."

@@ -53,6 +53,11 @@ evidence, status counts and client-side peak activity. Real capacity and
 SQLite booking experiments verify observed overlap and persisted state;
 standard tests remain independent of the optional application folder.
 
+The idempotency experiment now checks sequential repeats and concurrent first use
+with separate fresh keys, selected JSON replay equality, changed-input rejection
+and declared effect counts. See [idempotency](docs/idempotency.md). Review this
+implementation before moving to general retry policies.
+
 Test applications live in the sibling `../veriq-testcase` folder, outside this
 repository. Veriq-owned test helpers stay under `test/support/`; standard checks
 do not import companion applications. See [testing](docs/testing.md).
@@ -270,13 +275,31 @@ The optional application and booking-state harness remain in
 Concurrency does not automatically discover application invariants or prove
 that an unobserved race is impossible.
 
+## Idempotency — completed
+
+- [x] Declare the operation, JSON replay selection and authoritative per-key count API.
+- [x] Validate fresh-key preconditions before mutating the target.
+- [x] Verify sequential repeats, concurrent first use and changed-input rejection.
+- [x] Read bounded UTF-8 JSON with body-completion timing and cancellation.
+- [x] Preserve missing evidence as unknown; distinguish FAIL, INCONCLUSIVE and ERROR.
+- [x] Share bounded scheduling with the existing concurrency command and verify regressions.
+- [x] Test protocol behavior over real HTTP without external applications.
+- [x] Run naive, racy-cache and transactional SQLite applications.
+- [x] Verify restart replay, shared-database instances, response loss and rollback/recovery.
+- [x] Document actual contracts, commands, evidence and limits without questions.
+
+The SQLite target stays in `../veriq-testcase/idempotency`. Its receipt and effect
+share a transaction; this is not a guarantee over arbitrary external side effects.
+General automatic retries, expiry/retention policies, eventual-consistency polling
+and cross-system atomicity are separate features.
+
 ## Later concept progression
 
 Each item uses the same working loop; this is a learning sequence, not a promise
 to create all features now. Teach prerequisites before dependent concepts.
 
 1. Controlled concurrency (implemented; review current work before advancing).
-2. Idempotency.
+2. Idempotency (implemented; review before advancing).
 3. Retries and retry safety.
 4. Rate limiting.
 5. Caching behavior.

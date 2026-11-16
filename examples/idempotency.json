@@ -1,0 +1,21 @@
+{
+  "request": {
+    "target": "http://127.0.0.1:4500/operations",
+    "method": "POST",
+    "headers": { "content-type": "application/json" },
+    "body": "{\"amount\":10,\"currency\":\"USD\"}",
+    "expectedStatus": 201,
+    "timeoutMs": 2000,
+    "maxDurationMs": 2000
+  },
+  "state": {
+    "target": "http://127.0.0.1:4500/effects/{key}",
+    "countPointer": "/effectCount"
+  },
+  "responsePointer": "/operationId",
+  "conflictBody": "{\"amount\":20,\"currency\":\"USD\"}",
+  "conflictExpectedStatus": 409,
+  "sequentialRequests": 3,
+  "concurrentRequests": 5,
+  "concurrency": 5
+}
