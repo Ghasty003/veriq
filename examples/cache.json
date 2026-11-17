@@ -1,0 +1,26 @@
+{
+  "read": {
+    "target": "http://127.0.0.1:4800/cache/{caller}/{key}",
+    "maxDurationMs": 500
+  },
+  "source": {
+    "target": "http://127.0.0.1:4800/source/{caller}/{key}"
+  },
+  "originWrite": {
+    "target": "http://127.0.0.1:4800/origin/{caller}/{key}"
+  },
+  "write": {
+    "target": "http://127.0.0.1:4800/source/{caller}/{key}"
+  },
+  "valuePointer": "/value",
+  "sourceValuePointer": "/value",
+  "sourceReadsPointer": "/reads",
+  "ttlMs": 1000,
+  "windowGuardMs": 50,
+  "expiryGraceMs": 50,
+  "hitRequests": 2,
+  "burstRequests": 5,
+  "concurrency": 5,
+  "deadlineMs": 10000,
+  "invalidation": "required"
+}

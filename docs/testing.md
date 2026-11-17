@@ -17,12 +17,18 @@ veriq/
 │   │   ├── http-run.test.ts
 │   │   ├── latency.test.ts
 │   │   ├── concurrency.test.ts
-│   │   └── idempotency.test.ts
+│   │   ├── idempotency.test.ts
+│   │   ├── retry.test.ts
+│   │   ├── rate-limit.test.ts
+│   │   └── cache.test.ts
 │   └── support/
 │       ├── http-target.ts
 │       ├── cli-process.ts
 │       ├── concurrency-target.ts
-│       └── idempotency-target.ts
+│       ├── idempotency-target.ts
+│       ├── retry-target.ts
+│       ├── rate-limit-target.ts
+│       └── cache-target.ts
 └── package.json
 ```
 
@@ -40,7 +46,7 @@ not included in this repository.
 | `npm run build` | Compile production TypeScript into `dist/`. | Installed dependencies. | Updated executable JavaScript; exit 0. |
 | `npm test` | Run unit and CLI-validation tests against source. | Installed dependencies. | All assertions pass; exit 0. |
 | `npm run typecheck` | Check source and all repository-owned tests without emitting files. | Installed dependencies. | No type errors; exit 0. |
-| `npm run test:integration` | Build and test the compiled HTTP, latency, concurrency and idempotency commands over real local connections. | Permission to listen on localhost. | All assertions pass; exit 0. |
+| `npm run test:integration` | Build and test the compiled HTTP, latency, concurrency, idempotency, retry, rate-limit and cache commands over real local connections. | Permission to listen on localhost. | All assertions pass; exit 0. |
 | `npm run check` | Run type checking, unit/CLI tests, build and all integration suites. | Installed dependencies and localhost permission. | Full verification passes; exit 0. |
 
 Before a commit, run:
@@ -65,6 +71,15 @@ from Veriq is a passing test when it matches the asserted failure behavior.
 | `test/http-experiment.test.ts` | Evidence/result separation, cancellation ordering, listener cleanup, overlapping-run isolation, transport classification, internal errors, bounded body cleanup and secret omission. |
 | `test/http-latency-summary.test.ts` | Known percentile/mean calculations, non-mutating summaries, outcome counts and response-only statistics. |
 | `test/integration/http-run.test.ts` | Real compiled-CLI requests, text/JSON output, legacy probe, redirects, streaming cleanup, lateness, timeout, POST/HEAD, signals, reset and refused connections. |
+| `test/cache-config.test.ts` | Endpoint roles, bounded policy settings, safe URL templates and generated JSON writes. |
+| `test/http-cache.test.ts` | Pre-cancellation, fresh-state preconditions, sanitized observer failures, transport uncertainty and retained partial violations. |
+| `test/integration/cache.test.ts` | Actual cache hits/loads, TTL expiry, normal-write freshness, isolation, stampedes, invalid counters, JSON limits, deadline/signals and in-flight invalidation. |
+| `test/rate-limit-config.test.ts` | Strict fresh-caller window, status, identity-header and budget validation. |
+| `test/http-rate-limit.test.ts` | Pre-cancellation, unknown transport outcomes, sanitized internal errors and retained known failures. |
+| `test/integration/rate-limit.test.ts` | Real allowance/isolation/reset/burst behavior, broken modes, window overruns, deadlines, optional Retry-After and signals. |
+| `test/retry-policy.test.ts` | Configuration, mutation gating, exponential caps/full jitter, Retry-After formats and failure classification. |
+| `test/http-retry.test.ts` | Recovery, exhaustion, shared budgets, cancellation, internal/cleanup failures and stable-key state audits. |
+| `test/integration/retry.test.ts` | Real recovery/persistent/permanent responses, server delay timing, deadline clipping, slow success, signals and lost-write effects. |
 | `test/http-idempotency.test.ts` | Declared contract validation, replay/effect assertions, fresh-state preconditions, unknown original outcomes and internal/cancellation paths. |
 | `test/http-json.test.ts` | Bounded JSON reads, invalid UTF-8/JSON, body limits, cancellation, sanitized transport/internal errors. |
 | `test/json-value.test.ts` | Canonical fingerprints and safe JSON Pointer selection. |
@@ -130,6 +145,9 @@ and machine load can affect the exact observed durations.
 | `src/http-experiment.ts` | Give the run an identity and turn evidence into an assertion, result and finding. | Experiment unit tests and JSON integration reports. |
 | `src/http-assertion.ts` | Evaluate status and duration. | Assertion boundary unit tests and manual wrong-status/late cases. |
 | `src/http-probe.ts` | Provide the original GET API through the shared observation lifecycle. | Legacy probe integration case and manual probe commands. |
+| `src/retry-policy.ts` | Validate retry safety/policy and compute failure decisions and delays. | Policy unit tests. |
+| `src/http-retry.ts` | Execute a bounded recovery policy and optional effect audits under one deadline. | Retry unit and HTTP integration tests. |
+| `src/retry-report.ts` | Render attempts, decisions, waits and safety/recovery assertions. | Retry formatting and CLI integration cases. |
 | `src/http-idempotency.ts` | Coordinate fresh-key scenarios and assert declared replay, conflict and effect-count requirements. | Idempotency unit and real HTTP integration suites. |
 | `src/http-json.ts` | Read bounded JSON with body-completion timing and cleanup. | JSON unit and real streaming/body-failure cases. |
 | `src/json-value.ts` | Select JSON values safely and fingerprint canonical representations. | JSON-value unit tests. |
@@ -188,3 +206,39 @@ with `../veriq-testcase/idempotency` available. The harness checks first-use
 races, durable replay after restart, shared-database instances, lost responses,
 conflicting input and transaction rollback. It is outside the standard suite.
 See [idempotency](idempotency.md) for the contract and exact commands.
+
+For optional SQLite retry recovery/effect experiments, run `npm run experiment:retry`
+with `../veriq-testcase/retry` available. These local applications stay outside
+the repository. See [retry](retry.md) for the policy, exact manual commands,
+expected state evidence and verification limits.
+
+## Rate-limit checks
+
+```sh
+npm run build
+node --test test/integration/rate-limit.test.ts
+npm run experiment:rate-limit
+```
+
+The first two commands need only this repository. The optional third command
+requires `../veriq-testcase/rate-limit`; it compares atomic/global/racy/sticky
+SQLite applications and checks one shared allowance across two processes.
+See [the rate-limit walkthrough](rate-limit.md) for exact manual commands,
+configuration, expected failures and the supported anchored-window contract.
+A limiter using another algorithm requires different assertions.
+
+## Cache checks
+
+```sh
+npm run build
+node --test test/integration/cache.test.ts
+npm run experiment:cache
+```
+
+Standard checks use only repository-owned HTTP targets. The optional final
+command requires `../veriq-testcase/cache`; it compares eight cache modes backed
+by an actual SQLite source, checks invalidation during a fill and demonstrates
+independent cache state across two processes sharing one source. See the
+[caching walkthrough](caching.md) for the explicit API contract, commands and
+expected evidence. Diagnostic source snapshots do not increment the source-load
+counter; a fast HTTP response alone is not evidence of a cache hit.

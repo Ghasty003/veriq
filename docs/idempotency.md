@@ -269,3 +269,7 @@ warning for this optional target.
 One run establishes observed behavior for these keys, payloads, timing and
 state API. It cannot prove permanent exactly-once execution or that an
 unobserved race is impossible.
+
+The separate [retry experiment](retry.md) now reuses a single fresh key across
+a bounded recovery policy. It does not add automatic retries to this idempotency
+command or change these sequential/concurrent stimulus rules.

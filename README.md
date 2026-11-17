@@ -3,7 +3,8 @@
 Veriq runs experiments against applications and reports evidence about explicit
 system requirements. The current implementation supports HTTP reachability,
 status and header-arrival timing assertions, configurable sequential latency,
-bounded HTTP concurrency and explicit HTTP/JSON idempotency experiments.
+bounded HTTP concurrency, HTTP/JSON idempotency, controlled retries, per-caller
+rate limits and JSON cache behavior experiments.
 It is under active development.
 
 ## Setup
@@ -28,6 +29,9 @@ after changing source to update that executable. Without linking, use
 | `veriq run <url>` | Execute one configured, cancellable HTTP experiment. | GET, status 200 within 2000 ms. | Text; `--format json` for a versioned JSON report. |
 | `veriq run --config <file>` | Load request and assertion settings from JSON. | Defaults apply to omitted settings. | Text or JSON. |
 | `veriq probe <url>` | Execute a single GET using the original command interface. | Status 200 within 2000 ms. | JSON. |
+| `veriq cache --config <file>` | Verify reuse, TTL expiry, normal-write freshness, caller/key isolation and coalesced refresh using explicit source counters. | Fixed TTL 1000 ms, two warm reads, five burst reads, immediate normal-write freshness. | Text or `--format json`. |
+| `veriq rate-limit --config <file>` | Check anchored-window allowance, caller isolation, reset and concurrent admission. | Three accepted requests per fresh caller per second; excess status 429. | Text or `--format json`. |
+| `veriq retry <url>` / `--config <file>` | Execute a classified retry policy with bounded attempts, backoff/jitter and an overall budget; audit declared writes. | Three attempts, 10 s overall, 100 ms base, 2 s exponential cap, full jitter. | Text or `--format json`. |
 | `veriq idempotency --config <file>` | Verify sequential/concurrent same-key replays, changed-input rejection and declared effect counts. Requires a JSON response/state API contract. | Fresh keys, three sequential and five concurrent attempts, conflict status 409. | Text or `--format json`. |
 | `veriq concurrency <url>` | Send a bounded number of overlapping HTTP attempts. Accepts `--config` for headers/body. | 20 requests, concurrency 5, status 200 within 500 ms, wait up to 2000 ms each. | Text by default; `--format json` for full evidence. |
 | `veriq latency <url>` | Send configurable sequential GET samples with cancellation and per-attempt evidence. | Five samples; every attempt returns 200 within 200 ms; wait up to 2000 ms per attempt. | JSON by default; `--format text` for readable output. |
@@ -42,11 +46,14 @@ veriq run http://127.0.0.1:3000/health --max-duration-ms 500 --timeout-ms 2000 -
 veriq probe http://127.0.0.1:3000/health --expected-status 200
 veriq latency http://127.0.0.1:3000/health --samples 20 --max-duration-ms 200 --timeout-ms 2000 --format text
 veriq concurrency http://127.0.0.1:3000/health --requests 100 --concurrency 10 --format text
+veriq retry http://127.0.0.1:3000/health --max-attempts 3 --deadline-ms 5000
 ```
 
-Run, probe, latency and concurrency measure arrival of **response headers**.
+Run, probe, latency, concurrency, retry and rate-limit operations measure arrival of **response headers**.
 They do not check response-body contents or completion. Idempotency reads bounded
-JSON responses and declared effect counts; see its explicit API contract.
+JSON responses and declared effect counts; cache experiments read bounded JSON
+and compare selected values and source-load counters; retry write audits also read bounded
+JSON. See each explicit API contract.
 Commands do not follow redirects. A passing request
 does not establish sustained availability or correctness of the whole application.
 
@@ -90,6 +97,10 @@ assertion, result, finding and any execution error. Reports go to stdout;
 invocation/configuration errors go to stderr. Probe keeps its JSON output; latency defaults to JSON and also supports text.
 For latency and concurrency, cancellation preserves FAIL if an earlier sample already failed;
 otherwise a partial run is INCONCLUSIVE. Interrupted sampling exits with 130/143.
+For rate-limit experiments, missing admission evidence is INCONCLUSIVE; an observed
+requirement violation is FAIL. See the [rate-limit reference](docs/rate-limit.md).
+For cache experiments, unavailable source state or TTL-window uncertainty is
+INCONCLUSIVE; observed violations are FAIL. See [caching](docs/caching.md).
 Help exits with 0.
 
 Request-header values and bodies are omitted from run reports, and URL query
@@ -114,13 +125,19 @@ outside this repository; their script is `npm run experiment:timeouts`.
 The optional busy-server and persisted booking-race experiments run with
 `npm run experiment:concurrency`. Neither local application folder is needed
 for standard checks. The optional idempotency application and durable replay
-experiments run with `npm run experiment:idempotency`.
+experiments run with `npm run experiment:idempotency`. Local retry recovery and
+SQLite effect-safety comparisons use `npm run experiment:retry`. Local rate-limit
+comparisons and shared-database checks use `npm run experiment:rate-limit`.
+Local SQLite-origin cache comparisons use `npm run experiment:cache`.
 
 ## Documentation
 
 | Document | Contents |
 | --- | --- |
 | [HTTP reference](docs/http-foundation.md) | Configuration, module responsibilities, execution flow, errors, cancellation and HTTP tests. |
+| [Caching reference](docs/caching.md) | Explicit source instrumentation, reuse, TTL, invalidation, isolation, stampedes and process-local cache limits. |
+| [Rate-limit reference](docs/rate-limit.md) | Per-caller window contracts, allowance, isolation, reset, concurrent caps and local experiments. |
+| [Retry reference](docs/retry.md) | Classification, backoff/jitter, shared deadlines, server guidance, write safety and experiments. |
 | [Idempotency reference](docs/idempotency.md) | Required API contract, replay/effect assertions, JSON bounds, local applications and verification. |
 | [Concurrency reference](docs/concurrency.md) | Worker limits, HTTP settings, cancellation, reports, capacity and persisted booking-race experiments. |
 | [Latency reference](docs/latency.md) | Sampling options, cancellation/partial results, summaries and reproducible latency tests. |

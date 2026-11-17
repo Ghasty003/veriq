@@ -1,0 +1,19 @@
+{
+  "algorithm": "anchored-fixed-window",
+  "request": {
+    "target": "http://127.0.0.1:4700/limited",
+    "expectedStatus": 200,
+    "timeoutMs": 2000,
+    "maxDurationMs": 500
+  },
+  "identityHeader": "X-RateLimit-Client",
+  "allowance": 3,
+  "excessRequests": 2,
+  "windowMs": 1000,
+  "windowGuardMs": 50,
+  "resetGraceMs": 50,
+  "concurrency": 5,
+  "deadlineMs": 10000,
+  "rejectedStatus": 429,
+  "requireRetryAfter": true
+}

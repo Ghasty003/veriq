@@ -1,0 +1,11 @@
+{
+  "request": {
+    "target": "http://127.0.0.1:4600/operations?loseFirst=1",
+    "method": "POST", "headers": { "content-type": "application/json" },
+    "body": "{\"amount\":10,\"currency\":\"USD\"}", "expectedStatus": 201,
+    "timeoutMs": 1000
+  },
+  "retrySafety": "idempotency-key",
+  "state": { "target": "http://127.0.0.1:4600/effects/{key}", "countPointer": "/effectCount" },
+  "policy": { "maxAttempts": 3, "deadlineMs": 5000, "baseDelayMs": 100, "maxDelayMs": 1000, "jitter": "full" }
+}

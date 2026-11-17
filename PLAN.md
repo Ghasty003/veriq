@@ -56,7 +56,27 @@ standard tests remain independent of the optional application folder.
 The idempotency experiment now checks sequential repeats and concurrent first use
 with separate fresh keys, selected JSON replay equality, changed-input rejection
 and declared effect counts. See [idempotency](docs/idempotency.md). Review this
-implementation before moving to general retry policies.
+implementation before moving to another substantial feature.
+
+Controlled retries are now implemented: [retry reference](docs/retry.md). The
+command executes a declared client policy, with attempt limits, one shared
+deadline, classified failures, exponential full jitter, Retry-After guidance
+and stable-key write audits.
+
+Per-caller anchored fixed-window rate limiting is now implemented: see the
+[rate-limit reference](docs/rate-limit.md). It checks allowance, excess rejection,
+caller isolation, reset recovery and concurrent admission with conservative window
+bounds, missing-evidence semantics and an overall deadline. Local SQLite examples
+include correct and deliberately broken modes plus a shared-database two-process
+check.
+
+Caching behavior is now implemented: [caching reference](docs/caching.md). It
+uses a declared source/value/count API to verify reuse, fixed TTL expiry,
+required normal-write freshness, caller/key isolation and expired-entry
+coalescing. Conservative timing guards and counter-consistency checks prevent
+unsupported conclusions. Real SQLite-origin examples expose faulty caches,
+in-flight invalidation races and the limits of process-local invalidation.
+Review this feature before advancing to load and saturation.
 
 Test applications live in the sibling `../veriq-testcase` folder, outside this
 repository. Veriq-owned test helpers stay under `test/support/`; standard checks
@@ -290,8 +310,62 @@ that an unobserved race is impossible.
 
 The SQLite target stays in `../veriq-testcase/idempotency`. Its receipt and effect
 share a transaction; this is not a guarantee over arbitrary external side effects.
-General automatic retries, expiry/retention policies, eventual-consistency polling
+Automatic retries in other experiments, expiry/retention policies, eventual-consistency polling
 and cross-system atomicity are separate features.
+
+## Retries and retry safety — completed
+
+- [x] Validate bounded policy settings and explicit write-safety/state contracts.
+- [x] Record each attempt, classification, planned delay and observed wait.
+- [x] Bound all actions with one deadline, including backoff and state checks.
+- [x] Implement capped exponential backoff with full jitter and deterministic test seams.
+- [x] Honor Retry-After without shortening it to fit the exponential cap or deadline.
+- [x] Stop on permanent failures, internal errors, exhaustion, budget limits or cancellation.
+- [x] Reuse one generated key and verify observed write effects after response loss.
+- [x] Test real transient/persistent/permanent HTTP failures and duplicate-effect detection.
+- [x] Run the SQLite-backed correct/naive retry example outside the repository.
+- [x] Document exact commands, result semantics and observation limits without questions.
+
+This tests a retrying client policy executed by Veriq, not an application's
+internal retry implementation. There is no global multi-client retry budget,
+automatic state polling, quiescence guarantee or cross-system atomicity claim.
+
+## Rate limiting — completed
+
+- [x] Declare a fresh-caller, first-request-anchored fixed-window contract.
+- [x] Validate bounded allowance, excess, window, worker and overall budget settings.
+- [x] Check accepted requests, excess rejection and caller isolation.
+- [x] Wait conservatively for expiry and verify a restored allowance.
+- [x] Exercise concurrent first use and detect observed over-admission.
+- [x] Preserve unknown admission evidence and guard against crossing reset boundaries.
+- [x] Support cancellation, deadline clipping, redacted evidence and text/JSON reports.
+- [x] Verify real correct/global/racy/sticky/deny-all targets and timing failures.
+- [x] Run SQLite examples and a two-process shared-database admission check.
+- [x] Document contracts, exact commands, results and limits without questions.
+
+Other rate-limit algorithms, provisioned caller identities, production load,
+retention policies and distributed clock/storage behavior remain separate work.
+The optional application lives in `../veriq-testcase/rate-limit`.
+
+## Caching behavior — completed
+
+- [x] Declare cached reads, authoritative values/load counts and separate normal/out-of-band writes.
+- [x] Generate fresh caller/key resources and verify empty-state preconditions before seeding.
+- [x] Verify cold loads, warm reuse and fresh data after fixed TTL expiry.
+- [x] Test normal-write invalidation/refresh while the previous TTL is still live.
+- [x] Support an explicit TTL-only policy without demanding immediate invalidation.
+- [x] Verify both key and caller isolation with distinct source values.
+- [x] Detect expired-entry stampedes using observed per-resource source-load counts.
+- [x] Guard timing intervals, preserve unknown outcomes and reject decreasing counter evidence.
+- [x] Reuse bounded JSON, worker scheduling and cancellation with an overall deadline.
+- [x] Verify healthy/broken cache modes, incomplete bodies, signals and source failures over real HTTP.
+- [x] Run SQLite-origin examples, old-fill/write races and two process-local cache instances.
+- [x] Document exact contracts, module flow, commands, expected results and limits without questions.
+
+The optional application is `../veriq-testcase/cache`. Standard verification is
+self-contained. Shared-cache coordination, cross-instance invalidation,
+stale-while-revalidate, capacity/eviction behavior and arbitrary HTTP/CDN cache
+semantics require separate explicit contracts.
 
 ## Later concept progression
 
@@ -300,9 +374,9 @@ to create all features now. Teach prerequisites before dependent concepts.
 
 1. Controlled concurrency (implemented; review current work before advancing).
 2. Idempotency (implemented; review before advancing).
-3. Retries and retry safety.
-4. Rate limiting.
-5. Caching behavior.
+3. Retries and retry safety (implemented; review before advancing).
+4. Rate limiting (implemented; review before advancing).
+5. Caching behavior (implemented; review before advancing).
 6. Load and saturation.
 7. Backpressure.
 8. Queues and at-least-once delivery.

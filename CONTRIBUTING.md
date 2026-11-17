@@ -68,3 +68,14 @@ outside this repository; standard checks do not require it.
 
 Optional SQLite idempotency/recovery experiments use `npm run experiment:idempotency`
 and `../veriq-testcase/idempotency`. Standard tests remain self-contained.
+
+Optional retry recovery and saved-effect comparisons use `npm run experiment:retry`
+with `../veriq-testcase/retry`. Standard checks continue to run from Veriq alone.
+
+Optional SQLite rate-limit comparisons and shared-database admission checks use
+`npm run experiment:rate-limit` with `../veriq-testcase/rate-limit`. Standard
+checks use repository-owned HTTP fixtures and require no external application.
+
+Optional cache comparisons use `npm run experiment:cache` with
+`../veriq-testcase/cache`. Source values/counters are SQLite-backed while caches
+are process-local. Standard tests remain inside Veriq and use temporary targets.

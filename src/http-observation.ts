@@ -6,6 +6,7 @@ export type HttpObservation = HttpEvidence & {
   measurementBoundary: "response-headers";
   failure: { category: TransportCategory | "timeout" | "cancelled"; code: string | null } | null;
   cleanup: "no-body" | "body-cancelled" | "failed";
+  retryAfter: string | null;
 };
 
 export function transportFailure(cause: unknown): { category: TransportCategory; code: string | null } | null {
@@ -33,7 +34,7 @@ export function transportFailure(cause: unknown): { category: TransportCategory;
 
 export async function observeHttp(
   input: HttpConfiguration,
-  options: { signal?: AbortSignal; fetch?: typeof globalThis.fetch } = {},
+  options: { signal?: AbortSignal; fetch?: typeof globalThis.fetch; onObservationEnd?: () => void } = {},
 ): Promise<HttpObservation> {
   const config = parseHttpConfiguration(input);
   const fetchRequest = options.fetch ?? globalThis.fetch;
@@ -82,6 +83,9 @@ export async function observeHttp(
     }
     const durationMs = performance.now() - start;
     const endedAt = new Date().toISOString();
+    // A coordinator can record this boundary on its own shared budget clock,
+    // before response cleanup adds time outside the measured observation.
+    options.onObservationEnd?.();
     // Later cancellation cannot rewrite a completed header observation.
     clearTimeout(timer);
     options.signal?.removeEventListener("abort", onCancel);
@@ -103,6 +107,7 @@ export async function observeHttp(
       }
     }
     const location = response?.headers.get("location");
+    const retryAfter = response?.headers.get("retry-after");
     return {
       target: redactUrl(config.target), method: config.method, startedAt, endedAt, durationMs,
       timeoutMs: config.timeoutMs,
@@ -110,6 +115,8 @@ export async function observeHttp(
       status: response?.status ?? null,
       contentType: response?.headers.get("content-type")?.slice(0, 256) ?? null,
       location: location ? redactUrl(location, config.target) : null,
+      // Never interpret a truncated numeric delay as a smaller server delay.
+      retryAfter: retryAfter && retryAfter.length <= 16384 ? retryAfter : null,
       error, failure, cleanup, measurementBoundary: "response-headers",
     };
   } finally {

@@ -1,0 +1,4 @@
+{
+  "request": { "target": "http://127.0.0.1:4600/flaky", "expectedStatus": 200, "timeoutMs": 1000 },
+  "policy": { "maxAttempts": 4, "deadlineMs": 5000, "baseDelayMs": 100, "maxDelayMs": 1000, "jitter": "full" }
+}

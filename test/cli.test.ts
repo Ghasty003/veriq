@@ -5,18 +5,20 @@ import { fileURLToPath } from "node:url";
 
 const cli = fileURLToPath(new URL("../src/cli.ts", import.meta.url));
 test("root and probe help expose configurable requirements and exit successfully", () => {
-  for (const args of [["--help"], ["probe", "--help"], ["run", "--help"], ["latency", "--help"], ["concurrency", "--help"], ["idempotency", "--help"]]) {
+  for (const args of [["--help"], ["probe", "--help"], ["run", "--help"], ["latency", "--help"], ["concurrency", "--help"], ["idempotency", "--help"], ["retry", "--help"], ["rate-limit", "--help"], ["cache", "--help"]]) {
     const result = spawnSync(process.execPath, [cli, ...args], { encoding: "utf8" });
     assert.equal(result.status, 0, result.stderr);
     assert.equal(result.stderr, "");
     assert.match(result.stdout, args.length === 1 ? /probe/ : new RegExp(args[0]));
-    if (args.length === 2) assert.match(result.stdout, args[0] === "idempotency" ? /--config/ : /--expected-status/);
+    if (args.length === 2) assert.match(result.stdout, ["idempotency", "rate-limit", "cache"].includes(args[0]) ? /--config/ : /--expected-status/);
   }
 });
 
 test("invalid invocations produce ERROR on stderr without experiment evidence", () => {
   const url = "http://127.0.0.1:1/unused";
   const cases = [
+    ["cache"], ["cache", "--config", "missing.json"], ["cache", "--config", "missing.json", "--format", "xml"],
+    ["rate-limit"], ["rate-limit", "--config", "missing.json"], ["rate-limit", "--config", "missing.json", "--format", "xml"],
     [], ["unknown"], ["probe"], ["probe", "relative-url"], ["probe", "ftp://example.test"],
     ["probe", url, "extra"], ["probe", url, "--unknown"],
     ["probe", url, "--expected-status", "600"],
@@ -39,6 +41,9 @@ test("invalid invocations produce ERROR on stderr without experiment evidence", 
     ["concurrency", "--config", "missing.json", "--requests", "2"],
     ["idempotency"], ["idempotency", "--config", "missing.json"],
     ["idempotency", "--config", "missing.json", "--format", "xml"],
+    ["retry"], ["retry", url, "--max-attempts", "0"], ["retry", url, "--jitter", "bad"],
+    ["retry", url, "--base-delay-ms", "-1"], ["retry", url, "--deadline-ms", "0"],
+    ["retry", url, "--config", "missing.json"], ["retry", url, "--format", "xml"],
   ];
   for (const args of cases) {
     const result = spawnSync(process.execPath, [cli, ...args], { encoding: "utf8" });
