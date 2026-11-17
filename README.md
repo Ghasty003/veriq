@@ -4,7 +4,7 @@ Veriq runs experiments against applications and reports evidence about explicit
 system requirements. The current implementation supports HTTP reachability,
 status and header-arrival timing assertions, configurable sequential latency,
 bounded HTTP concurrency, HTTP/JSON idempotency, controlled retries, per-caller
-rate limits and JSON cache behavior experiments.
+rate limits, JSON cache behavior and staged HTTP load experiments.
 It is under active development.
 
 ## Setup
@@ -29,6 +29,7 @@ after changing source to update that executable. Without linking, use
 | `veriq run <url>` | Execute one configured, cancellable HTTP experiment. | GET, status 200 within 2000 ms. | Text; `--format json` for a versioned JSON report. |
 | `veriq run --config <file>` | Load request and assertion settings from JSON. | Defaults apply to omitted settings. | Text or JSON. |
 | `veriq probe <url>` | Execute a single GET using the original command interface. | Status 200 within 2000 ms. | JSON. |
+| `veriq load --config <file>` | Compare timed increasing concurrency levels and lower-load recovery, with explicit throughput and latency populations. | Levels 1/5/10/20, 2 s each, recovery, status 200 within 200 ms, bounded attempts and an overall deadline. | Text or `--format json`. |
 | `veriq cache --config <file>` | Verify reuse, TTL expiry, normal-write freshness, caller/key isolation and coalesced refresh using explicit source counters. | Fixed TTL 1000 ms, two warm reads, five burst reads, immediate normal-write freshness. | Text or `--format json`. |
 | `veriq rate-limit --config <file>` | Check anchored-window allowance, caller isolation, reset and concurrent admission. | Three accepted requests per fresh caller per second; excess status 429. | Text or `--format json`. |
 | `veriq retry <url>` / `--config <file>` | Execute a classified retry policy with bounded attempts, backoff/jitter and an overall budget; audit declared writes. | Three attempts, 10 s overall, 100 ms base, 2 s exponential cap, full jitter. | Text or `--format json`. |
@@ -49,7 +50,7 @@ veriq concurrency http://127.0.0.1:3000/health --requests 100 --concurrency 10 -
 veriq retry http://127.0.0.1:3000/health --max-attempts 3 --deadline-ms 5000
 ```
 
-Run, probe, latency, concurrency, retry and rate-limit operations measure arrival of **response headers**.
+Run, probe, latency, concurrency, retry, rate-limit and load operations measure arrival of **response headers**.
 They do not check response-body contents or completion. Idempotency reads bounded
 JSON responses and declared effect counts; cache experiments read bounded JSON
 and compare selected values and source-load counters; retry write audits also read bounded
@@ -101,6 +102,8 @@ For rate-limit experiments, missing admission evidence is INCONCLUSIVE; an obser
 requirement violation is FAIL. See the [rate-limit reference](docs/rate-limit.md).
 For cache experiments, unavailable source state or TTL-window uncertainty is
 INCONCLUSIVE; observed violations are FAIL. See [caching](docs/caching.md).
+For load experiments, caps, incomplete windows or insufficient samples prevent
+PASS; observed request/throughput violations remain FAIL. See [load](docs/load.md).
 Help exits with 0.
 
 Request-header values and bodies are omitted from run reports, and URL query
@@ -129,12 +132,15 @@ experiments run with `npm run experiment:idempotency`. Local retry recovery and
 SQLite effect-safety comparisons use `npm run experiment:retry`. Local rate-limit
 comparisons and shared-database checks use `npm run experiment:rate-limit`.
 Local SQLite-origin cache comparisons use `npm run experiment:cache`.
+Queued work, load/recovery and persisted completion experiments use
+`npm run experiment:load`.
 
 ## Documentation
 
 | Document | Contents |
 | --- | --- |
 | [HTTP reference](docs/http-foundation.md) | Configuration, module responsibilities, execution flow, errors, cancellation and HTTP tests. |
+| [Load reference](docs/load.md) | Timed concurrency stages, throughput populations, saturation evidence, recovery, caps and queue experiments. |
 | [Caching reference](docs/caching.md) | Explicit source instrumentation, reuse, TTL, invalidation, isolation, stampedes and process-local cache limits. |
 | [Rate-limit reference](docs/rate-limit.md) | Per-caller window contracts, allowance, isolation, reset, concurrent caps and local experiments. |
 | [Retry reference](docs/retry.md) | Classification, backoff/jitter, shared deadlines, server guidance, write safety and experiments. |

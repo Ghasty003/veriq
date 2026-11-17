@@ -79,3 +79,7 @@ checks use repository-owned HTTP fixtures and require no external application.
 Optional cache comparisons use `npm run experiment:cache` with
 `../veriq-testcase/cache`. Source values/counters are SQLite-backed while caches
 are process-local. Standard tests remain inside Veriq and use temporary targets.
+
+Optional queue/load/recovery and persisted job-audit experiments use
+`npm run experiment:load` with `../veriq-testcase/load`. Standard load checks
+use repository-owned fixtures and need no sibling application folder.
