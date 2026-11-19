@@ -20,7 +20,8 @@ veriq/
 │   │   ├── idempotency.test.ts
 │   │   ├── retry.test.ts
 │   │   ├── rate-limit.test.ts
-│   │   └── cache.test.ts
+│   │   ├── cache.test.ts
+│   │   └── load.test.ts
 │   └── support/
 │       ├── http-target.ts
 │       ├── cli-process.ts
@@ -28,7 +29,8 @@ veriq/
 │       ├── idempotency-target.ts
 │       ├── retry-target.ts
 │       ├── rate-limit-target.ts
-│       └── cache-target.ts
+│       ├── cache-target.ts
+│       └── load-target.ts
 └── package.json
 ```
 
@@ -46,7 +48,7 @@ not included in this repository.
 | `npm run build` | Compile production TypeScript into `dist/`. | Installed dependencies. | Updated executable JavaScript; exit 0. |
 | `npm test` | Run unit and CLI-validation tests against source. | Installed dependencies. | All assertions pass; exit 0. |
 | `npm run typecheck` | Check source and all repository-owned tests without emitting files. | Installed dependencies. | No type errors; exit 0. |
-| `npm run test:integration` | Build and test the compiled HTTP, latency, concurrency, idempotency, retry, rate-limit and cache commands over real local connections. | Permission to listen on localhost. | All assertions pass; exit 0. |
+| `npm run test:integration` | Build and test the compiled HTTP, latency, concurrency, idempotency, retry, rate-limit, cache and load commands over real local connections. | Permission to listen on localhost. | All assertions pass; exit 0. |
 | `npm run check` | Run type checking, unit/CLI tests, build and all integration suites. | Installed dependencies and localhost permission. | Full verification passes; exit 0. |
 
 Before a commit, run:
@@ -71,6 +73,11 @@ from Veriq is a passing test when it matches the asserted failure behavior.
 | `test/http-experiment.test.ts` | Evidence/result separation, cancellation ordering, listener cleanup, overlapping-run isolation, transport classification, internal errors, bounded body cleanup and secret omission. |
 | `test/http-latency-summary.test.ts` | Known percentile/mean calculations, non-mutating summaries, outcome counts and response-only statistics. |
 | `test/integration/http-run.test.ts` | Real compiled-CLI requests, text/JSON output, legacy probe, redirects, streaming cleanup, lateness, timeout, POST/HEAD, signals, reset and refused connections. |
+| `test/bounded-workers.test.ts` | Admission closure drains active actions; admission exceptions stop and settle workers. |
+| `test/load-config.test.ts` | Increasing levels, endpoint requirements, sample/work caps and budget validation. |
+| `test/load-summary.test.ts` | Distinct response populations, failure fractions, null measurements and exact rate denominators. |
+| `test/http-load.test.ts` | Timed stages, caps, samples, throughput floors, original/clipped timeouts, partial failures, observer errors and cancellation during cleanup. |
+| `test/integration/load.test.ts` | Real plateau/queueing, healthy simulated I/O, rejection, damaged recovery, body/header settings, deadlines and signals. |
 | `test/cache-config.test.ts` | Endpoint roles, bounded policy settings, safe URL templates and generated JSON writes. |
 | `test/http-cache.test.ts` | Pre-cancellation, fresh-state preconditions, sanitized observer failures, transport uncertainty and retained partial violations. |
 | `test/integration/cache.test.ts` | Actual cache hits/loads, TTL expiry, normal-write freshness, isolation, stampedes, invalid counters, JSON limits, deadline/signals and in-flight invalidation. |
@@ -242,3 +249,18 @@ independent cache state across two processes sharing one source. See the
 [caching walkthrough](caching.md) for the explicit API contract, commands and
 expected evidence. Diagnostic source snapshots do not increment the source-load
 counter; a fast HTTP response alone is not evidence of a cache hit.
+
+## Load and saturation checks
+
+```sh
+npm run build
+node --test test/integration/load.test.ts
+npm run experiment:load
+```
+
+The standard suite uses only `test/support/load-target.ts` and owned temporary
+HTTP servers. The optional last command requires `../veriq-testcase/load` and
+compares real SQLite-backed job processing modes. It also audits persisted
+completion after a caller disconnects. See [load and saturation](load.md) for
+configuration, exact manual commands, result populations and controlled limits.
+Known timing/status failures remain FAIL even when another stage recovers.

@@ -19,6 +19,8 @@ import { testHttpRateLimit } from "./http-rate-limit.ts";
 import { formatRateLimitReport } from "./rate-limit-report.ts";
 import { testHttpCache } from "./http-cache.ts";
 import { formatCacheReport } from "./cache-report.ts";
+import { testHttpLoad } from "./http-load.ts";
+import { formatLoadReport } from "./load-report.ts";
 
 function normalizeTarget(value: string) {
   let target: URL;
@@ -190,6 +192,19 @@ program.command("idempotency")
     });
   });
 
+program.command("load")
+  .description("Run timed, increasing concurrency stages and optional low-concurrency recovery against declared HTTP requirements.")
+  .requiredOption("--config <path>", "load request, concurrency stages and bounded timing configuration")
+  .option("--format <format>", "text or json", "text")
+  .action(async (options: { config: string; format: string }) => {
+    if (!["text", "json"].includes(options.format)) throw new ConfigurationError("--format must be text or json.");
+    await withCliCancellation(async (signal, exitCode) => {
+      const report = await testHttpLoad(await readConfigurationFile(options.config), { signal });
+      console.log(formatLoadReport(report, options.format as "text" | "json"));
+      process.exitCode = exitCode(report.result, report.completion.cancelled);
+    });
+  });
+
 program.command("cache")
   .description("Verify declared JSON cache reuse, expiry, invalidation, isolation and coalesced refresh.")
   .requiredOption("--config <path>", "cache read, source, mutation and timing configuration")
@@ -244,7 +259,7 @@ program.command("retry [url]")
 
 try {
   if (process.argv.length === 2) {
-    throw new Error("Expected a command: veriq run, probe, latency, concurrency, idempotency, retry, rate-limit, or cache. Use --help for usage.");
+    throw new Error("Expected a command: veriq run, probe, latency, concurrency, idempotency, retry, rate-limit, cache, or load. Use --help for usage.");
   }
   await program.parseAsync(process.argv);
 } catch (cause) {

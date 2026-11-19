@@ -76,7 +76,13 @@ required normal-write freshness, caller/key isolation and expired-entry
 coalescing. Conservative timing guards and counter-consistency checks prevent
 unsupported conclusions. Real SQLite-origin examples expose faulty caches,
 in-flight invalidation races and the limits of process-local invalidation.
-Review this feature before advancing to load and saturation.
+Load and saturation experiments are now implemented: [load reference](docs/load.md).
+Timed closed-loop stages increase concurrency, preserve per-request evidence,
+separate useful throughput from fast errors, drain admitted work and test recovery
+at the initial level. Sample/work caps and an overall deadline bound execution.
+SQLite-backed queue examples verify a throughput plateau, latency growth,
+rejection, persistent degradation and work continuing after client cancellation.
+Review this feature before advancing to backpressure.
 
 Test applications live in the sibling `../veriq-testcase` folder, outside this
 repository. Veriq-owned test helpers stay under `test/support/`; standard checks
@@ -367,6 +373,25 @@ self-contained. Shared-cache coordination, cross-instance invalidation,
 stale-while-revalidate, capacity/eviction behavior and arbitrary HTTP/CDN cache
 semantics require separate explicit contracts.
 
+## Load and saturation — completed
+
+- [x] Validate increasing concurrency stages, admission windows, sample/work caps and overall budget.
+- [x] Run timed closed-loop stages and drain active observations at boundaries without cancelling them.
+- [x] Compare response and expected-status latency populations, rates, failures and unknown outcomes.
+- [x] Support an optional passed-throughput floor alongside per-request status/duration requirements.
+- [x] Return to the first concurrency level and evaluate recovery independently.
+- [x] Preserve partial evidence, original timeout semantics and known violations after interruption.
+- [x] Bound retained observations and reject capped/undersampled stages as insufficient for PASS.
+- [x] Verify shared admission ownership, timing/cleanup races, source failures and process signals.
+- [x] Exercise real queueing, rejection and persistent degradation with independent server metrics.
+- [x] Run SQLite job audits showing completion after the observing client has disconnected.
+- [x] Document exact commands, expected evidence, module flow and measurement limits without questions.
+
+The optional application is `../veriq-testcase/load`. Standard checks stay
+self-contained. This is a bounded single-process closed-loop experiment, not a
+fixed-arrival load generator or proof of maximum sustainable production capacity.
+Distributed generation, resource attribution and long soak tests remain separate.
+
 ## Later concept progression
 
 Each item uses the same working loop; this is a learning sequence, not a promise
@@ -377,7 +402,7 @@ to create all features now. Teach prerequisites before dependent concepts.
 3. Retries and retry safety (implemented; review before advancing).
 4. Rate limiting (implemented; review before advancing).
 5. Caching behavior (implemented; review before advancing).
-6. Load and saturation.
+6. Load and saturation (implemented; review before advancing).
 7. Backpressure.
 8. Queues and at-least-once delivery.
 9. Consistency.

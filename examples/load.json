@@ -1,0 +1,16 @@
+{
+  "request": {
+    "target": "http://127.0.0.1:4900/work",
+    "expectedStatus": 200,
+    "maxDurationMs": 250,
+    "timeoutMs": 1000
+  },
+  "stages": [1, 5, 10, 20],
+  "stageDurationMs": 1000,
+  "maxRequestsPerStage": 1000,
+  "minSamplesPerStage": 10,
+  "pauseMs": 250,
+  "deadlineMs": 15000,
+  "minPassedRequestsPerSecond": 0,
+  "recovery": true
+}
