@@ -13,6 +13,14 @@ import { runHttpConcurrency } from "./http-concurrency.ts";
 import { formatConcurrencyReport } from "./concurrency-report.ts";
 import { testHttpIdempotency } from "./http-idempotency.ts";
 import { formatIdempotencyReport } from "./idempotency-report.ts";
+import { testHttpRetry } from "./http-retry.ts";
+import { formatRetryReport } from "./retry-report.ts";
+import { testHttpRateLimit } from "./http-rate-limit.ts";
+import { formatRateLimitReport } from "./rate-limit-report.ts";
+import { testHttpCache } from "./http-cache.ts";
+import { formatCacheReport } from "./cache-report.ts";
+import { testHttpLoad } from "./http-load.ts";
+import { formatLoadReport } from "./load-report.ts";
 
 function normalizeTarget(value: string) {
   let target: URL;
@@ -60,6 +68,12 @@ function boundedCount(label: string, maximum: number) {
     }
     return count;
   };
+}
+
+function delayMilliseconds(value: string) {
+  const milliseconds = Number(value);
+  if (!/^\d+$/.test(value) || !Number.isInteger(milliseconds) || milliseconds < 0 || milliseconds > 60000) throw new InvalidArgumentError("Delay must be an integer from 0 to 60000 milliseconds.");
+  return milliseconds;
 }
 
 const program = new Command()
@@ -178,9 +192,74 @@ program.command("idempotency")
     });
   });
 
+program.command("load")
+  .description("Run timed, increasing concurrency stages and optional low-concurrency recovery against declared HTTP requirements.")
+  .requiredOption("--config <path>", "load request, concurrency stages and bounded timing configuration")
+  .option("--format <format>", "text or json", "text")
+  .action(async (options: { config: string; format: string }) => {
+    if (!["text", "json"].includes(options.format)) throw new ConfigurationError("--format must be text or json.");
+    await withCliCancellation(async (signal, exitCode) => {
+      const report = await testHttpLoad(await readConfigurationFile(options.config), { signal });
+      console.log(formatLoadReport(report, options.format as "text" | "json"));
+      process.exitCode = exitCode(report.result, report.completion.cancelled);
+    });
+  });
+
+program.command("cache")
+  .description("Verify declared JSON cache reuse, expiry, invalidation, isolation and coalesced refresh.")
+  .requiredOption("--config <path>", "cache read, source, mutation and timing configuration")
+  .option("--format <format>", "text or json", "text")
+  .action(async (options: { config: string; format: string }) => {
+    if (!["text", "json"].includes(options.format)) throw new ConfigurationError("--format must be text or json.");
+    await withCliCancellation(async (signal, exitCode) => {
+      const report = await testHttpCache(await readConfigurationFile(options.config), { signal });
+      console.log(formatCacheReport(report, options.format as "text" | "json"));
+      process.exitCode = exitCode(report.result, report.completion.cancelled);
+    });
+  });
+
+program.command("rate-limit")
+  .description("Check per-caller anchored fixed-window allowance, isolation, reset and concurrent admission.")
+  .requiredOption("--config <path>", "rate-limit experiment JSON configuration")
+  .option("--format <format>", "text or json", "text")
+  .action(async (options: { config: string; format: string }) => {
+    if (!["text", "json"].includes(options.format)) throw new ConfigurationError("--format must be text or json.");
+    await withCliCancellation(async (signal, exitCode) => {
+      const report = await testHttpRateLimit(await readConfigurationFile(options.config), { signal });
+      console.log(formatRateLimitReport(report, options.format as "text" | "json"));
+      process.exitCode = exitCode(report.result, report.completion.cancelled);
+    });
+  });
+
+program.command("retry [url]")
+  .description("Run a bounded recovery experiment with classified retries, backoff and an overall deadline.")
+  .option("--config <path>", "JSON request, retry policy and optional declared write-state contract")
+  .option("--max-attempts <count>", "total attempts including the first; default 3", boundedCount("maxAttempts", 100))
+  .option("--deadline-ms <ms>", "overall action budget including backoff and state checks; default 10000", positiveMilliseconds)
+  .option("--base-delay-ms <ms>", "initial exponential backoff cap; default 100", delayMilliseconds)
+  .option("--max-delay-ms <ms>", "maximum exponential backoff cap; default 2000", delayMilliseconds)
+  .option("--jitter <mode>", "full or none; default full")
+  .option("--timeout-ms <ms>", "per-attempt observation limit; default 2000", positiveMilliseconds)
+  .option("--max-duration-ms <ms>", "successful attempt header-duration requirement; defaults to timeout", positiveMilliseconds)
+  .option("--expected-status <status>", "required successful status; default 200", httpStatus)
+  .option("--format <format>", "text or json", "text")
+  .action(async (url: string | undefined, options: { config?: string; maxAttempts?: number; deadlineMs?: number; baseDelayMs?: number; maxDelayMs?: number; jitter?: string; timeoutMs?: number; maxDurationMs?: number; expectedStatus?: number; format: string }) => {
+    if (!["text", "json"].includes(options.format)) throw new ConfigurationError("--format must be text or json.");
+    if ((url === undefined) === (options.config === undefined)) throw new ConfigurationError("Provide exactly one URL or --config file.");
+    if (options.config && [options.maxAttempts, options.deadlineMs, options.baseDelayMs, options.maxDelayMs, options.jitter, options.timeoutMs, options.maxDurationMs, options.expectedStatus].some((value) => value !== undefined)) throw new ConfigurationError("Request and policy settings belong in the config file when using --config.");
+    await withCliCancellation(async (signal, exitCode) => {
+      const report = await testHttpRetry(options.config ? await readConfigurationFile(options.config) : {
+        request: { target: url, timeoutMs: options.timeoutMs, maxDurationMs: options.maxDurationMs, expectedStatus: options.expectedStatus },
+        policy: { maxAttempts: options.maxAttempts, deadlineMs: options.deadlineMs, baseDelayMs: options.baseDelayMs, maxDelayMs: options.maxDelayMs, jitter: options.jitter },
+      }, { signal });
+      console.log(formatRetryReport(report, options.format as "text" | "json"));
+      process.exitCode = exitCode(report.result, report.completion.cancelled);
+    });
+  });
+
 try {
   if (process.argv.length === 2) {
-    throw new Error("Expected a command: veriq run, probe, latency, concurrency, or idempotency. Use --help for usage.");
+    throw new Error("Expected a command: veriq run, probe, latency, concurrency, idempotency, retry, rate-limit, cache, or load. Use --help for usage.");
   }
   await program.parseAsync(process.argv);
 } catch (cause) {

@@ -272,8 +272,9 @@ Tests inject fetch for deterministic rare errors and lifecycle races, but the
 real CLI integration suite uses actual HTTP servers and sockets. Injection is
 a test seam, not the production implementation.
 
-There is no persistence layer, automatic retry policy, phase-level latency
-instrumentation or multi-machine coordination. Run does not assert bodies;
+Run has no persistence layer, automatic retry policy, phase-level latency
+instrumentation or multi-machine coordination. The separate [retry command](retry.md)
+explicitly executes a configured recovery policy; it does not change run. Run does not assert bodies;
 [the idempotency experiment](idempotency.md) separately reads bounded JSON for
 its declared replay and state-count contract.
 Those need separate experiments and contracts when introduced.

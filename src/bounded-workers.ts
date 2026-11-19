@@ -2,6 +2,8 @@ export async function runBounded<T>(options: {
   count: number;
   concurrency: number;
   signal?: AbortSignal;
+  // Closing admission drains active actions; it does not cancel them.
+  shouldStart?: () => boolean;
   action: (index: number, signal: AbortSignal) => Promise<T>;
   stopWhen: (value: T) => boolean;
   onException: () => T;
@@ -14,6 +16,14 @@ export async function runBounded<T>(options: {
   if (options.signal?.aborted) stop();
   async function worker(worker: number) {
     while (!stopped && next < options.count) {
+      let admitted: boolean;
+      try { admitted = options.shouldStart?.() ?? true; }
+      catch {
+        const index = next++;
+        records[index] = { index, worker: worker + 1, value: options.onException() };
+        stop(); break;
+      }
+      if (!admitted) break;
       const index = next++; // A synchronous claim, before yielding to another worker.
       active++; peakInFlight = Math.max(peakInFlight, active);
       let value: T;
